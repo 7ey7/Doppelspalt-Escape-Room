@@ -55,7 +55,7 @@
     <section class="layout">
       <aside class="card controls">
         <div class="control"><label>Wellenlänge λ <output id="lambdaOut"></output></label><input id="lambda" type="range" min="380" max="750" step="2" value="520"><div class="scale"><span>violett</span><span>rot</span></div></div>
-        <div class="control"><label>Spaltabstand d <output id="dOut"></output></label><input id="d" type="range" min="4" max="8" step="0.1" value="6"><div class="scale"><span>enger</span><span>weiter</span></div></div>
+        <div class="control"><label>Spaltabstand d <output id="dOut"></output></label><input id="d" type="range" min="4" max="8" step="0.1" value="6.6"><div class="scale"><span>enger</span><span>weiter</span></div></div>
         <div class="control"><label>Spaltbreite b <output id="aOut"></output></label><input id="a" type="range" min="1" max="20" step="0.5" value="6"><div class="scale"><span>schmal</span><span>breit</span></div></div>
         <div class="control"><label>Schirmabstand L <output id="LOut"></output></label><input id="L" type="range" min="0.4" max="4.0" step="0.1" value="1.8"><div class="scale"><span>nah</span><span>fern</span></div></div>
         <div class="control"><label>Einzelereignisse <output id="eventsOut"></output></label><input id="events" type="range" min="0" max="5000" step="50" value="0"><div class="scale"><span>wenige</span><span>viele</span></div></div>
@@ -77,7 +77,7 @@
         <div class="card">
           <div class="caption"><h2>Trefferbild einzelner Quanten</h2><span>jeder Punkt entspricht einem Treffer</span></div>
           <canvas id="hitCanvas" width="900" height="360"></canvas>
-          <div class="note">Escape Room Modus: Der Code wird nicht eingeblendet. Bei der passenden Versuchsanordnung ordnen sich die Trefferpunkte nach dem Start langsam zu den Ziffern im Interferenzbild an.</div>
+          <div class="note">Escape Room Modus: Bei der passenden Versuchsanordnung ordnen sich die Trefferpunkte nach dem Start langsam zum Code 467 im Interferenzbild an. Der Code erscheint groß und untereinander auf dem Schirm.</div>
         </div>
       </section>
     </section>
@@ -98,6 +98,7 @@
     let codeBuildStart = null;
     let codeAnimationFrame = null;
     const codeBuildDurationMs = 5000;
+    const finalCode = "467";
 
     function sinc(x) { return Math.abs(x) < 1e-10 ? 1 : Math.sin(x) / x; }
     function params() { return { lambdaNm:+els.lambda.value, dUm:+els.d.value, aUm:+els.a.value, Lm:+els.L.value, events:+els.events.value }; }
@@ -219,40 +220,35 @@
       };
     }
 
-    function drawDigitHits(ctx, p, screenX, screenW, screenH, H) {
-      const maximaList = maxima(p);
-      const upper = maximaList.find(item => item.m === -1);
-      const center = maximaList.find(item => item.m === 0);
-      const lower = maximaList.find(item => item.m === 1);
-
-      const entries = [
-        { digit: "4", point: upper },
-        { digit: "6", point: center },
-        { digit: "7", point: lower }
-      ];
-
+    function drawDigitHits(ctx, p, screenX, screenW, screenTop, screenH, H) {
+      // Der Code erscheint direkt groß auf dem Schirm, untereinander lesbar: 4 / 6 / 7.
       const elapsed = codeBuildStart ? performance.now() - codeBuildStart : codeBuildDurationMs;
       const progress = Math.max(0, Math.min(1, elapsed / codeBuildDurationMs));
       const rand = randFactory();
 
+      const centerX = screenX + screenW / 2;
+      const scale = 0.84;
+      const verticalSpacing = 88;
+      const centerY = screenTop + screenH / 2;
+      const entries = [
+        { digit: "4", cx: centerX, cy: centerY - verticalSpacing },
+        { digit: "6", cx: centerX, cy: centerY },
+        { digit: "7", cx: centerX, cy: centerY + verticalSpacing }
+      ];
+
       ctx.save();
       ctx.fillStyle = "#eaffff";
-      ctx.shadowBlur = 7;
+      ctx.shadowBlur = 8;
       ctx.shadowColor = "rgba(207,250,254,0.95)";
 
       for (const entry of entries) {
-        if (!entry.point) continue;
-
-        const cy = H / 2 + entry.point.yMm / (screenWidthMm / 2) * (screenH / 2);
-        const cx = screenX + screenW / 2;
         const segments = digitSegments(entry.digit);
-
-        const pointsPerSegmentMax = 95;
+        const pointsPerSegmentMax = 115;
         const totalForDigit = Math.floor(pointsPerSegmentMax * segments.length * progress);
 
         for (let i = 0; i < totalForDigit; i++) {
           const segment = segments[i % segments.length];
-          const point = pointOnSegment(segment, cx, cy, 1, rand);
+          const point = pointOnSegment(segment, entry.cx, entry.cy, scale, rand);
 
           ctx.globalAlpha = 0.35 + rand() * 0.65;
           ctx.beginPath();
@@ -263,6 +259,7 @@
 
       ctx.restore();
       ctx.globalAlpha = 1;
+      ctx.textAlign = "start";
     }
 
     function drawHits(p, curve) {
@@ -302,7 +299,7 @@
       if (codeActive) {
         // Im Code-Modus verschwindet die normale Messverteilung.
         // Sichtbar bleiben nur die Trefferpunkte, die sich zu den Ziffern anordnen.
-        drawDigitHits(ctx, p, screenX, screenW, screenH, H);
+        drawDigitHits(ctx, p, screenX, screenW, screenTop, screenH, H);
       }
 
       ctx.fillStyle='#94a3b8'; ctx.font='13px system-ui, sans-serif';
@@ -405,7 +402,7 @@
     els.resetBtn.addEventListener('click',()=>{
       stop();
       els.lambda.value=520;
-      els.d.value=6;
+      els.d.value=20;
       els.a.value=6;
       els.L.value=1.8;
       els.events.value=0;
